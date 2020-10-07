@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	tr        *translate.Translate
-	awsKey    string
-	awsSecret string
+	tr           *translate.Translate
+	awsKey       string
+	awsSecret    string
+	translations []*Text
 )
 
 type Text struct {
@@ -33,17 +34,30 @@ type Text struct {
 }
 
 func main() {
-	awsKey = os.Getenv("AWS_ACCESS_KEY_ID")
-	awsSecret = os.Getenv("AWS_SECRET_ACCESS_KEY")
-	if awsKey == "" || awsSecret == "" {
-		fmt.Println("AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY not set")
-		os.Exit(0)
-		return
-	}
-
 	InitAWS()
 
-	file, _ := os.Open("./languages/data.csv")
+	csvFile := "./languages/data.csv"
+	jsDirectory := "./languages"
+
+	if err := TranslateCSV(csvFile); err != nil {
+		panic(err)
+	}
+
+	langs := []string{"english", "russian", "french", "german", "spanish", "japanese", "chinese", "italian", "korean"}
+	for _, v := range langs {
+		if err := CreateJS(v, jsDirectory); err != nil {
+			panic(err)
+		}
+	}
+}
+
+// TranslateCSV accepts a CSV file for translations, the CSV format should be:
+// key,english_value
+// hey,Hello
+// bye,Goodbye
+// the CSV KEY will be used as the JS variable name
+func TranslateCSV(filename string) error {
+	file, _ := os.Open(filename)
 
 	defer file.Close()
 	c := csv.NewReader(file)
@@ -68,26 +82,16 @@ func main() {
 		english := record[1]
 
 		translated := TranslateAll(key, english)
-
 		translations = append(translations, translated)
 
 		fmt.Printf("%s | English: %s | French: %s | German: %s | Russian: %s\n", translated.Key, translated.En, translated.Fr, translated.De, translated.Ru)
 		line++
 	}
-
-	//CreateGo(translations)
-
-	CreateJS("english", translations)
-	CreateJS("russian", translations)
-	CreateJS("french", translations)
-	CreateJS("german", translations)
-	CreateJS("spanish", translations)
-	CreateJS("japanese", translations)
-	CreateJS("chinese", translations)
-	CreateJS("italian", translations)
-	CreateJS("korean", translations)
+	return nil
 }
 
+// Translate accepts the english string, and the translated language type
+// to return the string value of that requested language
 func Translate(val, language string) string {
 	input := &translate.TextInput{
 		SourceLanguageCode: aws.String("en"),
@@ -101,6 +105,8 @@ func Translate(val, language string) string {
 	return *out.TranslatedText
 }
 
+// TranslateAll accepts a key and english value of a string and returns
+// a Text object with all translations
 func TranslateAll(key, en string) *Text {
 	return &Text{
 		Key: key,
@@ -141,49 +147,13 @@ func (t *Text) String(lang string) string {
 	}
 }
 
-func GoLang(trs []*Text) string {
-	var allvars []string
-	languages := []string{"english", "russian"}
-	for _, language := range languages {
-		allvars = append(allvars, language+" := make(map[string]string)")
-		for _, t := range trs {
-			allvars = append(allvars, GoLine(language, t))
-		}
-		allvars = append(allvars, "\nLanguage[\""+language+"\"] = "+language)
-	}
-	return strings.Join(allvars, "\n")
-}
-
-func GoLine(lang string, t *Text) string {
-	switch lang {
-	case "english":
-		return fmt.Sprintf(`		%s["%s"] = "%s"`, lang, t.Key, t.En)
-	case "russian":
-		return fmt.Sprintf(`		%s["%s"] = "%s"`, lang, t.Key, t.Ru)
-	case "spanish":
-		return fmt.Sprintf(`		%s["%s"] = "%s"`, lang, t.Key, t.Sp)
-	case "german":
-		return fmt.Sprintf(`		%s["%s"] = "%s"`, lang, t.Key, t.De)
-	case "french":
-		return fmt.Sprintf(`		%s["%s"] = "%s"`, lang, t.Key, t.Fr)
-	case "japanese":
-		return fmt.Sprintf(`		%s["%s"] = "%s"`, lang, t.Key, t.Jp)
-	case "chinese":
-		return fmt.Sprintf(`		%s["%s"] = "%s"`, lang, t.Key, t.Cn)
-	case "korean":
-		return fmt.Sprintf(`		%s["%s"] = "%s"`, lang, t.Key, t.Ko)
-	case "italian":
-		return fmt.Sprintf(`		%s["%s"] = "%s"`, lang, t.Key, t.It)
-	default:
-		return fmt.Sprintf(`		%s["%s"] = "%s"`, lang, t.Key, t.En)
-	}
-}
-
-func CreateJS(name string, trs []*Text) {
+// CreateJS accepts the JS file name to be created, and a slice of translations to
+// create a dedicated JS file for each language.
+func CreateJS(name, directory string) error {
 	data := "const " + name + " = {\n"
 
 	var allvars []string
-	for _, v := range trs {
+	for _, v := range translations {
 		allvars = append(allvars, v.String(name))
 	}
 
@@ -191,11 +161,15 @@ func CreateJS(name string, trs []*Text) {
 
 	data += "\n}\n\nexport default " + name
 
-	ioutil.WriteFile("./languages/"+name+".js", []byte(data), os.ModePerm)
-
+	return ioutil.WriteFile(directory+"/"+name+".js", []byte(data), os.ModePerm)
 }
 
+// InitAWS sets up the AWS Translate package using your AWS credientials
+// via environment variables: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
 func InitAWS() {
+	awsKey = os.Getenv("AWS_ACCESS_KEY_ID")
+	awsSecret = os.Getenv("AWS_SECRET_ACCESS_KEY")
+
 	creds := credentials.NewStaticCredentials(awsKey, awsSecret, "")
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String("us-west-2"),
