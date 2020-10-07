@@ -151,18 +151,13 @@ func (t *Text) String(lang string) string {
 // create a dedicated JS file for each language.
 func CreateJS(name, directory string) error {
 	fmt.Printf("Creating %s/%s.js with %d translations\n", directory, name, len(translations))
-
 	data := "const " + name + " = {\n"
-
 	var allvars []string
 	for _, v := range translations {
 		allvars = append(allvars, v.String(name))
 	}
-
 	data += strings.Join(allvars, ",\n")
-
 	data += "\n}\n\nexport default " + name
-
 	return ioutil.WriteFile(directory+"/"+name+".js", []byte(data), os.ModePerm)
 }
 
