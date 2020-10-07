@@ -44,8 +44,8 @@ func main() {
 	}
 
 	langs := []string{"english", "russian", "french", "german", "spanish", "japanese", "chinese", "italian", "korean"}
-	for _, v := range langs {
-		if err := CreateJS(v, jsDirectory); err != nil {
+	for _, lang := range langs {
+		if err := CreateJS(lang, jsDirectory); err != nil {
 			panic(err)
 		}
 	}
@@ -62,7 +62,6 @@ func TranslateCSV(filename string) error {
 	defer file.Close()
 	c := csv.NewReader(file)
 
-	var translations []*Text
 	line := 0
 	for {
 		// Read each record from csv
@@ -87,6 +86,7 @@ func TranslateCSV(filename string) error {
 		fmt.Printf("%s | English: %s | French: %s | German: %s | Russian: %s\n", translated.Key, translated.En, translated.Fr, translated.De, translated.Ru)
 		line++
 	}
+	fmt.Printf("Contains %d translations\n", len(translations))
 	return nil
 }
 
@@ -150,6 +150,8 @@ func (t *Text) String(lang string) string {
 // CreateJS accepts the JS file name to be created, and a slice of translations to
 // create a dedicated JS file for each language.
 func CreateJS(name, directory string) error {
+	fmt.Printf("Creating %s/%s.js with %d translations\n", directory, name, len(translations))
+
 	data := "const " + name + " = {\n"
 
 	var allvars []string
