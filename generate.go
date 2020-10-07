@@ -1,5 +1,3 @@
-// +build ignore
-
 package main
 
 import (
@@ -35,7 +33,6 @@ type Text struct {
 }
 
 func main() {
-	fmt.Println("RUNNING: ./source/generate_languages.go")
 	awsKey = os.Getenv("AWS_ACCESS_KEY_ID")
 	awsSecret = os.Getenv("AWS_SECRET_ACCESS_KEY")
 	if awsKey == "" || awsSecret == "" {
@@ -46,7 +43,7 @@ func main() {
 
 	InitAWS()
 
-	file, _ := os.Open("../frontend/src/languages/data.csv")
+	file, _ := os.Open("./languages/data.csv")
 
 	defer file.Close()
 	c := csv.NewReader(file)
@@ -182,23 +179,7 @@ func GoLine(lang string, t *Text) string {
 	}
 }
 
-func CreateGo(trs []*Text) {
-
-	data := `package utils
-
-var Language map[string]map[string]string
-
-func init() {
-	Language = make(map[string]map[string]string)
-	` + GoLang(trs) + `
-}
-`
-
-	ioutil.WriteFile("../utils/languages.go", []byte(data), os.ModePerm)
-}
-
 func CreateJS(name string, trs []*Text) {
-
 	data := "const " + name + " = {\n"
 
 	var allvars []string
@@ -210,7 +191,7 @@ func CreateJS(name string, trs []*Text) {
 
 	data += "\n}\n\nexport default " + name
 
-	ioutil.WriteFile("../frontend/src/languages/"+name+".js", []byte(data), os.ModePerm)
+	ioutil.WriteFile("./languages/"+name+".js", []byte(data), os.ModePerm)
 
 }
 
